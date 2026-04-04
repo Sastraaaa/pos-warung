@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="POS Warung">
+  <rect width="512" height="512" rx="112" fill="#0f172a" />
+  <rect x="104" y="140" width="304" height="232" rx="28" fill="#1e293b" stroke="#38bdf8" stroke-width="12" />
+  <path d="M140 200h232l-20 116H160l-20-116Z" fill="#38bdf8" opacity="0.9" />
+  <path d="M184 200a72 72 0 0 1 144 0" fill="none" stroke="#e2e8f0" stroke-width="18" stroke-linecap="round" />
+  <text x="256" y="300" text-anchor="middle" font-family="Arial, sans-serif" font-size="72" font-weight="700" fill="#0f172a">POS</text>
+</svg>
