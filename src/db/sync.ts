@@ -131,26 +131,24 @@ export class SyncManager {
         if (itemsErr) throw itemsErr
       }
 
-      // 3) Update product stock + checkout_count
+      // 3) Update product stock
+      // checkout_count is incremented by DB trigger on transaction_items insert.
       const qtyByProduct = groupQuantities(items)
       for (const [productId, qty] of qtyByProduct.entries()) {
         const { data: prod, error: prodSelErr } = await supabase
           .from('products')
-          .select('current_stock, checkout_count')
+          .select('current_stock')
           .eq('id', productId)
           .single()
         if (prodSelErr) throw prodSelErr
 
         const currentStock = Number(prod.current_stock ?? 0)
-        const currentCheckoutCount = Number(prod.checkout_count ?? 0)
         const newStock = Math.max(0, currentStock - qty)
-        const newCheckoutCount = currentCheckoutCount + qty
 
         const { error: prodUpErr } = await supabase
           .from('products')
           .update({
             current_stock: newStock,
-            checkout_count: newCheckoutCount,
             updated_at: new Date().toISOString(),
           })
           .eq('id', productId)
@@ -172,8 +170,6 @@ export class SyncManager {
         let nextDebt = currentDebt
         if (tx.total_amount === 0 && tx.paid_amount > 0) {
           nextDebt = Math.max(0, currentDebt - tx.paid_amount)
-        } else if (tx.debt_created > 0) {
-          nextDebt = currentDebt + tx.debt_created
         }
 
         const { error: custUpErr } = await supabase

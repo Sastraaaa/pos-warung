@@ -1,73 +1,97 @@
-# React + TypeScript + Vite
+# POS Warung
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+POS Warung is a simple Point of Sale application designed for small shops (warung). It features a local-first architecture to ensure reliability even with intermittent internet connectivity.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Local-first architecture: Works offline using IndexedDB (Dexie) and synchronizes with Supabase when online.
+- Product management: Track inventory and stock levels.
+- Customer management: Maintain customer records and track debt.
+- Transaction handling:
+  - LUNAS (Paid)
+  - KASBON_FULL (Full debt)
+  - SEBAGIAN (Partial payment)
+- Daily reports: Summary of revenue, profit, and debt status.
+- PWA support: Installable on mobile and desktop devices.
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- React 19
+- TypeScript
+- Vite 8
+- Tailwind CSS 4
+- Supabase (Backend & Auth)
+- Dexie.js (Local Database)
+- React Router 7
 
-## Expanding the ESLint configuration
+## Getting Started
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Prerequisites
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- Node.js (Latest LTS recommended)
+- npm or pnpm
+- Supabase account
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Installation
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/Sastraaaa/pos-warung.git
+   cd pos-warung
+   ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+3. Configure environment variables:
+   Create a `.env` file in the root directory based on `.env.example`:
+   ```bash
+   cp .env.example .env
+   ```
+   Fill in your Supabase credentials:
+   ```env
+   VITE_SUPABASE_URL=your_supabase_project_url
+   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+   ```
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+4. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+## Development Commands
+
+- `npm run dev`: Start development server with HMR.
+- `npm run build`: Build for production.
+- `npm run preview`: Preview the production build locally.
+- `npm run lint`: Run ESLint to check code quality.
+
+## Deployment
+
+### Supabase Setup
+
+1. Create a new project on [Supabase](https://app.supabase.com/).
+2. Set up your database schema (Postgres). Ensure RLS policies and triggers are configured as per the project requirements.
+3. Obtain your Project URL and Anon Key from the API settings.
+
+### Vercel Deployment
+
+1. Push your code to a GitHub repository.
+2. Connect your repository to [Vercel](https://vercel.com/).
+3. Add the following environment variables in the Vercel project settings:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+4. Deploy the project. Vercel will automatically detect the Vite configuration and build the application.
+
+## Environment Variables Reference
+
+| Variable | Description |
+|----------|-------------|
+| `VITE_SUPABASE_URL` | The API URL of your Supabase project. |
+| `VITE_SUPABASE_ANON_KEY` | The anonymous public key for your Supabase project. |
+
+## License
+
+This project is private and for educational purposes.

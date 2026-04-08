@@ -1,229 +1,188 @@
--- ============================================================
--- POS Warung Kelontong — Initial Schema Migration
--- ============================================================
--- This migration creates the complete database schema for the
--- offline-first POS system. Apply via Supabase Dashboard SQL
--- Editor or CLI: supabase db push
---
--- NOTE: For offline-first sync, the Service Worker will use
--- the Supabase service_role key for background sync operations.
--- ============================================================
+create extension if not exists pgcrypto;
 
-BEGIN;
-
--- ============================================================
--- 1. GENERIC TRIGGER FUNCTION: auto-update updated_at
--- ============================================================
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- ============================================================
--- 2. PRODUCTS TABLE
--- ============================================================
-CREATE TABLE IF NOT EXISTS products (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  category TEXT NOT NULL DEFAULT 'Umum',
-  capital_price NUMERIC(12,0) NOT NULL DEFAULT 0,
-  selling_price NUMERIC(12,0) NOT NULL DEFAULT 0,
-  current_stock INTEGER NOT NULL DEFAULT 0,
-  low_stock_flag BOOLEAN NOT NULL DEFAULT false,
-  checkout_count INTEGER NOT NULL DEFAULT 0,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+create table if not exists public.products (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  category text not null default 'Umum',
+  capital_price numeric(12,0) not null default 0,
+  selling_price numeric(12,0) not null default 0,
+  current_stock integer not null default 0,
+  low_stock_flag boolean not null default false,
+  checkout_count integer not null default 0,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
 );
 
--- Trigger: auto-update updated_at on products
-CREATE TRIGGER set_products_updated_at
-  BEFORE INSERT OR UPDATE ON products
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
-
--- Trigger: auto-set low_stock_flag when current_stock <= 5
-CREATE OR REPLACE FUNCTION set_low_stock_flag()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.low_stock_flag = (NEW.current_stock <= 5);
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER set_products_low_stock_flag
-  BEFORE INSERT OR UPDATE ON products
-  FOR EACH ROW
-  EXECUTE FUNCTION set_low_stock_flag();
-
--- ============================================================
--- 3. CUSTOMERS TABLE
--- ============================================================
-CREATE TABLE IF NOT EXISTS customers (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  phone TEXT,
-  total_outstanding_debt NUMERIC(14,0) NOT NULL DEFAULT 0,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+create table if not exists public.customers (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  phone text,
+  total_outstanding_debt numeric(14,0) not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
--- Trigger: auto-update updated_at on customers
-CREATE TRIGGER set_customers_updated_at
-  BEFORE INSERT OR UPDATE ON customers
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
-
--- ============================================================
--- 4. TRANSACTIONS TABLE
--- ============================================================
-CREATE TABLE IF NOT EXISTS transactions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  transaction_type TEXT NOT NULL CHECK (transaction_type IN ('LUNAS', 'KASBON_FULL', 'SEBAGIAN')),
-  customer_id UUID REFERENCES customers(id) ON DELETE SET NULL,
-  total_amount NUMERIC(14,0) NOT NULL DEFAULT 0,
-  paid_amount NUMERIC(14,0) NOT NULL DEFAULT 0,
-  debt_created NUMERIC(14,0) NOT NULL DEFAULT 0,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  is_synced BOOLEAN NOT NULL DEFAULT false
+create table if not exists public.transactions (
+  id uuid primary key default gen_random_uuid(),
+  transaction_type text not null check (transaction_type in ('LUNAS', 'KASBON_FULL', 'SEBAGIAN')),
+  customer_id uuid references public.customers(id) on delete set null,
+  total_amount numeric(14,0) not null default 0,
+  paid_amount numeric(14,0) not null default 0,
+  debt_created numeric(14,0) not null default 0,
+  created_at timestamptz not null default now(),
+  is_synced boolean not null default false
 );
 
--- ============================================================
--- 5. TRANSACTION ITEMS TABLE
--- ============================================================
-CREATE TABLE IF NOT EXISTS transaction_items (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  transaction_id UUID NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
-  product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
-  quantity INTEGER NOT NULL,
-  historical_capital_price NUMERIC(12,0) NOT NULL,
-  historical_selling_price NUMERIC(12,0) NOT NULL
+create table if not exists public.transaction_items (
+  id uuid primary key default gen_random_uuid(),
+  transaction_id uuid not null references public.transactions(id) on delete cascade,
+  product_id uuid not null references public.products(id) on delete restrict,
+  quantity integer not null,
+  historical_capital_price numeric(12,0) not null,
+  historical_selling_price numeric(12,0) not null
 );
 
--- ============================================================
--- 6. TRIGGER: increment checkout_count on transaction_items insert
--- ============================================================
-CREATE OR REPLACE FUNCTION increment_checkout_count()
-RETURNS TRIGGER AS $$
-BEGIN
-  UPDATE products
-  SET checkout_count = checkout_count + NEW.quantity
-  WHERE id = NEW.product_id;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+create index if not exists idx_products_category on public.products (category);
+create index if not exists idx_products_low_stock on public.products (low_stock_flag);
+create index if not exists idx_products_checkout_count on public.products (checkout_count desc);
+create index if not exists idx_customers_debt on public.customers (total_outstanding_debt desc);
+create index if not exists idx_transactions_created_at on public.transactions (created_at desc);
+create index if not exists idx_transactions_type on public.transactions (transaction_type);
+create index if not exists idx_transactions_customer on public.transactions (customer_id);
+create index if not exists idx_transactions_synced on public.transactions (is_synced);
+create index if not exists idx_transaction_items_transaction on public.transaction_items (transaction_id);
+create index if not exists idx_transaction_items_product on public.transaction_items (product_id);
 
-CREATE TRIGGER trg_increment_checkout_count
-  AFTER INSERT ON transaction_items
-  FOR EACH ROW
-  EXECUTE FUNCTION increment_checkout_count();
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
 
--- ============================================================
--- 7. TRIGGER: update customer debt on kasbon transactions
--- ============================================================
-CREATE OR REPLACE FUNCTION update_customer_debt()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF NEW.customer_id IS NOT NULL AND NEW.transaction_type IN ('KASBON_FULL', 'SEBAGIAN') AND NEW.debt_created > 0 THEN
-    UPDATE customers
-    SET total_outstanding_debt = total_outstanding_debt + NEW.debt_created
-    WHERE id = NEW.customer_id;
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+create or replace function public.set_product_low_stock_flag()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.low_stock_flag = new.current_stock <= 5;
+  return new;
+end;
+$$;
 
-CREATE TRIGGER trg_update_customer_debt
-  AFTER INSERT ON transactions
-  FOR EACH ROW
-  EXECUTE FUNCTION update_customer_debt();
+create or replace function public.increment_product_checkout_count()
+returns trigger
+language plpgsql
+as $$
+begin
+  update public.products
+  set checkout_count = checkout_count + new.quantity
+  where id = new.product_id;
 
--- ============================================================
--- 8. INDEXES
--- ============================================================
-CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
-CREATE INDEX IF NOT EXISTS idx_products_low_stock ON products(low_stock_flag);
-CREATE INDEX IF NOT EXISTS idx_products_checkout_count ON products(checkout_count DESC);
-CREATE INDEX IF NOT EXISTS idx_customers_debt ON customers(total_outstanding_debt DESC);
-CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON transactions(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(transaction_type);
-CREATE INDEX IF NOT EXISTS idx_transactions_customer ON transactions(customer_id);
-CREATE INDEX IF NOT EXISTS idx_transactions_synced ON transactions(is_synced);
-CREATE INDEX IF NOT EXISTS idx_transaction_items_transaction ON transaction_items(transaction_id);
-CREATE INDEX IF NOT EXISTS idx_transaction_items_product ON transaction_items(product_id);
+  return new;
+end;
+$$;
 
--- ============================================================
--- 9. ROW LEVEL SECURITY (RLS)
--- ============================================================
-ALTER TABLE products ENABLE ROW LEVEL SECURITY;
-ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE transaction_items ENABLE ROW LEVEL SECURITY;
+create or replace function public.update_customer_debt_after_transaction()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.transaction_type in ('KASBON_FULL', 'SEBAGIAN') and new.customer_id is not null then
+    update public.customers
+    set total_outstanding_debt = total_outstanding_debt + coalesce(new.debt_created, 0)
+    where id = new.customer_id;
+  end if;
 
--- Single-owner app: allow all operations for authenticated users.
--- For background sync, the service_role key bypasses RLS automatically.
-CREATE POLICY "Allow all for authenticated users" ON products FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all for authenticated users" ON customers FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all for authenticated users" ON transactions FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all for authenticated users" ON transaction_items FOR ALL TO authenticated USING (true) WITH CHECK (true);
+  return new;
+end;
+$$;
 
--- ============================================================
--- 10. HELPER FUNCTION: get_daily_summary(p_date DATE)
--- ============================================================
-CREATE OR REPLACE FUNCTION get_daily_summary(p_date DATE)
-RETURNS TABLE (
-  total_transactions BIGINT,
-  total_revenue NUMERIC,
-  total_profit NUMERIC,
-  total_kasbon NUMERIC,
-  total_outstanding_debt NUMERIC
-) AS $$
-DECLARE
-  v_total_transactions BIGINT;
-  v_total_revenue NUMERIC := 0;
-  v_total_profit NUMERIC := 0;
-  v_total_kasbon NUMERIC := 0;
-  v_total_outstanding_debt NUMERIC := 0;
-BEGIN
-  -- Count transactions for the given date
-  SELECT COUNT(*)
-  INTO v_total_transactions
-  FROM transactions
-  WHERE created_at::date = p_date;
+drop trigger if exists trg_products_updated_at on public.products;
+create trigger trg_products_updated_at
+before insert or update on public.products
+for each row execute function public.set_updated_at();
 
-  -- Total revenue (paid_amount for LUNAS transactions)
-  SELECT COALESCE(SUM(paid_amount), 0)
-  INTO v_total_revenue
-  FROM transactions
-  WHERE created_at::date = p_date AND transaction_type = 'LUNAS';
+drop trigger if exists trg_customers_updated_at on public.customers;
+create trigger trg_customers_updated_at
+before insert or update on public.customers
+for each row execute function public.set_updated_at();
 
-  -- Total profit (sum of margin * quantity for all transaction items on that date)
-  SELECT COALESCE(SUM((ti.historical_selling_price - ti.historical_capital_price) * ti.quantity), 0)
-  INTO v_total_profit
-  FROM transaction_items ti
-  JOIN transactions t ON ti.transaction_id = t.id
-  WHERE t.created_at::date = p_date;
+drop trigger if exists trg_products_low_stock_flag on public.products;
+create trigger trg_products_low_stock_flag
+before insert or update on public.products
+for each row execute function public.set_product_low_stock_flag();
 
-  -- Total kasbon (sum of debt_created for kasbon transactions on that date)
-  SELECT COALESCE(SUM(debt_created), 0)
-  INTO v_total_kasbon
-  FROM transactions
-  WHERE created_at::date = p_date AND transaction_type IN ('KASBON_FULL', 'SEBAGIAN');
+drop trigger if exists trg_transaction_items_increment_checkout_count on public.transaction_items;
+create trigger trg_transaction_items_increment_checkout_count
+after insert on public.transaction_items
+for each row execute function public.increment_product_checkout_count();
 
-  -- Total outstanding debt (current sum across all customers)
-  SELECT COALESCE(SUM(total_outstanding_debt), 0)
-  INTO v_total_outstanding_debt
-  FROM customers;
+drop trigger if exists trg_transactions_update_customer_debt on public.transactions;
+create trigger trg_transactions_update_customer_debt
+after insert on public.transactions
+for each row execute function public.update_customer_debt_after_transaction();
 
-  RETURN QUERY SELECT
-    v_total_transactions,
-    v_total_revenue,
-    v_total_profit,
-    v_total_kasbon,
-    v_total_outstanding_debt;
-END;
-$$ LANGUAGE plpgsql;
+alter table public.products enable row level security;
+alter table public.customers enable row level security;
+alter table public.transactions enable row level security;
+alter table public.transaction_items enable row level security;
 
-COMMIT;
+create policy "Authenticated users have full access to products"
+on public.products
+for all
+to authenticated
+using (true)
+with check (true);
+
+create policy "Authenticated users have full access to customers"
+on public.customers
+for all
+to authenticated
+using (true)
+with check (true);
+
+create policy "Authenticated users have full access to transactions"
+on public.transactions
+for all
+to authenticated
+using (true)
+with check (true);
+
+create policy "Authenticated users have full access to transaction_items"
+on public.transaction_items
+for all
+to authenticated
+using (true)
+with check (true);
+
+-- NOTE: For local-first sync, the Supabase service role key should be used for background sync operations.
+
+create or replace function public.get_daily_summary(p_date date)
+returns table (
+  total_transactions bigint,
+  total_revenue numeric(14,0),
+  total_profit numeric(20,0),
+  total_kasbon numeric(14,0),
+  total_outstanding_debt numeric(14,0)
+)
+language sql
+stable
+as $$
+with daily_transactions as (
+  select id, transaction_type, paid_amount, debt_created
+  from public.transactions
+  where created_at::date = p_date
+)
+select
+  (select count(*)::bigint from daily_transactions) as total_transactions,
+  (select coalesce(sum(case when transaction_type = 'LUNAS' then paid_amount else 0 end), 0::numeric(14,0)) from daily_transactions) as total_revenue,
+  (select coalesce(sum((ti.historical_selling_price - ti.historical_capital_price) * ti.quantity), 0::numeric(20,0))
+   from daily_transactions dt
+   left join public.transaction_items ti on ti.transaction_id = dt.id) as total_profit,
+  (select coalesce(sum(debt_created), 0::numeric(14,0)) from daily_transactions) as total_kasbon,
+  (select coalesce(sum(total_outstanding_debt), 0::numeric(14,0)) from public.customers) as total_outstanding_debt;
+$$;
