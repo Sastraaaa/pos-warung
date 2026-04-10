@@ -30,43 +30,43 @@ export function CustomerCard({ customer, onTagihWA, onClick }: Props) {
   return (
     <div
       onClick={onClick}
-      className="flex items-center justify-between p-4 rounded-xl border border-slate-800 bg-slate-900 hover:bg-slate-800 cursor-pointer transition-colors"
+      className="flex items-center justify-between p-5 rounded-xl border border-slate-700/50 bg-slate-900/40 hover:bg-slate-800 hover:border-slate-600 hover:shadow-md cursor-pointer transition-all duration-200 group"
     >
-      <div>
-        <h3 className="font-semibold text-white">{customer.name}</h3>
-        <p className="text-sm text-slate-400">
-          {customer.phone ? customer.phone : "No WA belum ada"}
+      <div className="flex flex-col gap-1">
+        <h3 className="font-bold text-slate-100 group-hover:text-blue-400 transition-colors">{customer.name}</h3>
+        <p className="text-xs font-medium text-slate-400">
+          {customer.phone ? customer.phone : "No. WA belum tersedia"}
         </p>
-        <p className="font-bold text-red-400 mt-1">{formattedDebt}</p>
+        <p className="font-bold tracking-wide text-red-400 mt-1">{formattedDebt}</p>
       </div>
 
-      <div onClick={(e) => e.stopPropagation()}>
+      <div onClick={(e) => e.stopPropagation()} className="pl-4">
         {customer.phone ? (
           <button
             onClick={handleWA}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
+            className="px-4 py-2 bg-emerald-600/90 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold tracking-wide transition-all shadow-sm hover:shadow-emerald-500/20"
           >
-            Tagih via WA
+            Tagih WA
           </button>
         ) : isAddingPhone ? (
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <input
               type="text"
               value={newPhone}
               onChange={(e) => setNewPhone(e.target.value)}
               placeholder="08..."
-              className="px-3 py-1 bg-slate-800 border border-slate-700 rounded text-sm text-white focus:outline-none focus:border-green-500 w-32"
+              className="px-3 py-2 bg-slate-950/50 border border-slate-700 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 w-32 sm:w-40 transition-all"
             />
-            <button className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm">
+            <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-bold transition-all shadow-sm">
               Simpan
             </button>
           </div>
         ) : (
           <button
             onClick={() => setIsAddingPhone(true)}
-            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors"
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl text-sm font-bold transition-all"
           >
-            Tambah No. WA
+            + No. WA
           </button>
         )}
       </div>
