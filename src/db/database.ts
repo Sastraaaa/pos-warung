@@ -70,6 +70,10 @@ export class PosWarungDB extends Dexie {
         "++id, is_synced, created_at, transaction_type, customer_id",
       transaction_items: "++id, transaction_id, product_id",
     });
+
+    this.version(2).stores({
+      products: "id, category, low_stock_flag, checkout_count, name, barcode, sku",
+    });
   }
 
   // -----------------
@@ -87,6 +91,10 @@ export class PosWarungDB extends Dexie {
       low_stock_flag: product.low_stock_flag,
       checkout_count: product.checkout_count ?? 0,
       updated_at: product.updated_at ?? now,
+      ...(product.barcode && { barcode: product.barcode }),
+      ...(product.sku && { sku: product.sku }),
+      ...(product.supplier && { supplier: product.supplier }),
+      ...(product.catatan && { catatan: product.catatan }),
     };
     await this.products.put(record);
     return record;
@@ -107,6 +115,14 @@ export class PosWarungDB extends Dexie {
 
   async getProductByName(name: string) {
     return this.products.where("name").equals(name).first();
+  }
+
+  async getProductByBarcode(barcode: string) {
+    return this.products.where("barcode").equals(barcode).first();
+  }
+
+  async getProductBySku(sku: string) {
+    return this.products.where("sku").equals(sku).first();
   }
 
   async getLowStockProducts() {
