@@ -9,16 +9,16 @@ interface SummaryCardProps {
 
 export function SummaryCard({ title, value, icon, trend }: SummaryCardProps) {
   return (
-    <div className="bg-slate-800 rounded-xl p-4 border border-slate-700 flex flex-col gap-2">
-      <div className="flex items-center justify-between text-slate-400">
-        <h3 className="text-sm font-medium">{title}</h3>
-        <div className="text-slate-500">{icon}</div>
+    <div className="bg-[var(--color-surface-panel)] border border-[var(--color-surface-border)] rounded-2xl p-5 shadow-sm transition-all hover:border-slate-600 hover:shadow-md flex flex-col gap-3 group">
+      <div className="flex items-center justify-between">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 group-hover:text-slate-300 transition-colors">{title}</h3>
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-800/50 text-slate-400 border border-slate-700/50 group-hover:bg-slate-800 transition-colors">{icon}</div>
       </div>
-      <div className="flex items-end gap-2">
-        <p className="text-2xl font-bold text-white">{value}</p>
+      <div className="flex items-end gap-2 mt-auto">
+        <p className="text-2xl font-black tracking-tight text-white">{value}</p>
         {trend && (
           <span
-            className={`text-sm font-medium mb-1 ${trend === "up" ? "text-green-500" : "text-red-500"}`}
+            className={`text-sm font-bold mb-1 ${trend === "up" ? "text-emerald-400" : "text-red-400"}`}
           >
             {trend === "up" ? "↑" : "↓"}
           </span>

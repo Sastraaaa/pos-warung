@@ -3,6 +3,7 @@ import type { Product } from "../types";
 import type { ProductRecord } from "../db/database";
 import { db } from "../db/database";
 import { ExcelImportModal } from "../components/inventory/ExcelImportModal";
+import { ProductFormModal, type ProductFormData } from "../components/inventory/ProductFormModal";
 import { downloadExport } from "../lib/excel";
 
 const EditableCell = ({
@@ -81,7 +82,27 @@ export default function InventoryPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showProductModal, setShowProductModal] = useState(false);
   const [importMessage, setImportMessage] = useState("");
+
+  const handleAddProduct = async (data: ProductFormData) => {
+    const newProduct: ProductRecord = {
+      ...data,
+      id: crypto.randomUUID(),
+      updated_at: new Date().toISOString(),
+      low_stock_flag: data.current_stock <= 5,
+      checkout_count: 0,
+    };
+    
+    try {
+      await db.products.put(newProduct);
+      loadProducts();
+    } catch (error) {
+      console.error("Failed to add product", error);
+      // Fallback for visual testing
+      setProducts([newProduct, ...products]);
+    }
+  };
 
   const loadProducts = async () => {
     try {
@@ -123,13 +144,26 @@ export default function InventoryPage() {
     loadProducts();
   }, []);
 
-  const handleImport = async (
-    newProducts: Omit<
+  const handleImport = async ({
+    validRows,
+    summary,
+  }: {
+    validRows: Omit<
       Product,
       "id" | "updated_at" | "low_stock_flag" | "checkout_count"
-    >[],
-  ) => {
-    const productsToInsert: ProductRecord[] = newProducts.map((p) => ({
+    >[];
+    summary: { valid: number; duplicate: number; invalid: number };
+  }) => {
+    if (validRows.length === 0) {
+      setImportMessage(
+        `0 produk diimpor. Duplikat: ${summary.duplicate}, Tidak Valid: ${summary.invalid}`,
+      );
+      setShowImportModal(false);
+      setTimeout(() => setImportMessage(""), 5000);
+      return;
+    }
+
+    const productsToInsert: ProductRecord[] = validRows.map((p) => ({
       ...p,
       id: crypto.randomUUID(),
       updated_at: new Date().toISOString(),
@@ -139,19 +173,21 @@ export default function InventoryPage() {
 
     try {
       await db.products.bulkPut(productsToInsert);
-      setImportMessage(`Berhasil mengimpor ${productsToInsert.length} produk`);
+      setImportMessage(
+        `Berhasil mengimpor ${summary.valid} produk. Duplikat dilewati: ${summary.duplicate}, Tidak valid: ${summary.invalid}`,
+      );
       setShowImportModal(false);
       loadProducts();
-      setTimeout(() => setImportMessage(""), 3000);
+      setTimeout(() => setImportMessage(""), 5000);
     } catch (error) {
       console.error("Error importing products", error);
       // Fallback for visual testing
       setProducts([...productsToInsert, ...products]);
       setImportMessage(
-        `Berhasil mengimpor ${productsToInsert.length} produk (Offline mode)`,
+        `Berhasil mengimpor ${summary.valid} produk (Offline mode). Duplikat: ${summary.duplicate}, Tidak Valid: ${summary.invalid}`,
       );
       setShowImportModal(false);
-      setTimeout(() => setImportMessage(""), 3000);
+      setTimeout(() => setImportMessage(""), 5000);
     }
   };
 
@@ -247,7 +283,7 @@ export default function InventoryPage() {
             Export Excel
           </button>
           <button
-            onClick={() => alert("Buka Modal Tambah Produk")}
+            onClick={() => setShowProductModal(true)}
             className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500"
           >
             Tambah Produk
@@ -283,12 +319,13 @@ export default function InventoryPage() {
         </select>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-700 bg-slate-900">
+      <div className="overflow-x-auto overflow-y-auto max-h-[60vh] rounded-xl border border-slate-700 bg-slate-900">
         <table className="w-full border-collapse text-left text-sm text-slate-300">
-          <thead className="bg-slate-800/50 text-xs uppercase text-slate-400">
+          <thead className="bg-slate-800 text-xs uppercase text-slate-400 sticky top-0 z-10 shadow-sm">
             <tr>
               <th className="px-4 py-3 font-medium">Nama</th>
               <th className="px-4 py-3 font-medium">Kategori</th>
+              <th className="px-4 py-3 font-medium">Barcode / SKU</th>
               <th className="px-4 py-3 font-medium">Harga Modal</th>
               <th className="px-4 py-3 font-medium">Harga Jual</th>
               <th className="px-4 py-3 font-medium">Stok</th>
@@ -315,6 +352,12 @@ export default function InventoryPage() {
                       handleCellEdit(product.id, "category", val)
                     }
                   />
+                </td>
+                <td className="px-4 py-2">
+                  <div className="text-xs text-slate-400">
+                    <span className="block">{product.barcode || "-"}</span>
+                    <span className="block opacity-75">{product.sku || "-"}</span>
+                  </div>
                 </td>
                 <td className="px-4 py-2">
                   <EditableCell
@@ -370,7 +413,7 @@ export default function InventoryPage() {
             {filteredProducts.length === 0 && (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={8}
                   className="px-4 py-8 text-center text-slate-500"
                 >
                   Tidak ada produk ditemukan
@@ -383,8 +426,16 @@ export default function InventoryPage() {
 
       {showImportModal && (
         <ExcelImportModal
+          existingProducts={products}
           onImport={handleImport}
           onClose={() => setShowImportModal(false)}
+        />
+      )}
+
+      {showProductModal && (
+        <ProductFormModal
+          onClose={() => setShowProductModal(false)}
+          onSave={handleAddProduct}
         />
       )}
     </div>

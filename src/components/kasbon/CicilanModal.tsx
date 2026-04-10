@@ -27,27 +27,27 @@ export function CicilanModal({ customer, onConfirm, onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full max-w-md bg-[var(--color-surface-panel)] border border-[var(--color-surface-border)] rounded-2xl shadow-2xl overflow-hidden scale-in-95 animate-in duration-200">
         <div className="p-6">
-          <h2 className="text-xl font-bold text-white mb-2">Bayar Cicilan</h2>
-          <p className="text-slate-400 text-sm mb-6">
+          <h2 className="text-xl font-bold tracking-tight text-white mb-2">Pembayaran Kasbon</h2>
+          <p className="text-slate-400 text-sm mb-6 leading-relaxed">
             Pelanggan:{" "}
-            <span className="text-white font-medium">{customer.name}</span>
+            <span className="text-slate-200 font-bold">{customer.name}</span>
             <br />
-            Total Hutang:{" "}
-            <span className="text-red-400 font-bold">
+            Total Piutang:{" "}
+            <span className="text-red-400 font-black tracking-wide">
               {formatRupiah(customer.total_outstanding_debt)}
             </span>
           </p>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1">
-                Jumlah Cicilan
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+                Nominal Pembayaran
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-500">
                   Rp
                 </span>
                 <input
@@ -58,17 +58,17 @@ export function CicilanModal({ customer, onConfirm, onClose }: Props) {
                   onChange={(e) =>
                     setAmount(e.target.value.replace(/[^0-9]/g, ""))
                   }
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-white focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
+                  className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl py-3 pl-12 pr-4 text-white font-bold text-lg tracking-wide focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all placeholder-slate-600"
                   placeholder="0"
                 />
               </div>
             </div>
 
-            <div className="flex gap-3 pt-4">
+            <div className="flex gap-3 pt-4 border-t border-slate-700/50 mt-6">
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 py-3 px-4 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors font-medium"
+                className="flex-1 py-3.5 px-4 rounded-xl border border-slate-700/50 bg-slate-800/50 text-slate-300 hover:bg-slate-700 hover:text-white transition-all font-bold"
               >
                 Batal
               </button>
@@ -79,7 +79,7 @@ export function CicilanModal({ customer, onConfirm, onClose }: Props) {
                   parseInt(amount) <= 0 ||
                   parseInt(amount) > customer.total_outstanding_debt
                 }
-                className="flex-1 py-3 px-4 rounded-xl bg-green-600 hover:bg-green-700 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold tracking-wide transition-all shadow-lg shadow-blue-900/20 disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed"
               >
                 Proses
               </button>

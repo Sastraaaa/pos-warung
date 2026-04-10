@@ -62,7 +62,7 @@ export function PosPage() {
       await db.addTransaction(transaction, cart);
 
       clearCart();
-      showToast("Transaksi KASBON berhasil disimpan!");
+      showToast("Transaksi KASBON berhasil dicatat!");
     } catch (error) {
       console.error("Kasbon transaction failed", error);
       showToast("Transaksi KASBON gagal!");
@@ -87,18 +87,18 @@ export function PosPage() {
       await db.addTransaction(transaction, cart);
 
       clearCart();
-      showToast("Transaksi CICILAN berhasil disimpan!");
+      showToast("Transaksi BAYAR SEBAGIAN berhasil disimpan!");
     } catch (error) {
       console.error("Cicilan transaction failed", error);
-      showToast("Transaksi CICILAN gagal!");
+      showToast("Transaksi BAYAR SEBAGIAN gagal!");
     }
   };
 
   return (
-    <div className="relative flex h-[calc(100vh-8rem)] flex-col gap-4 lg:grid lg:grid-cols-3">
+    <div className="relative flex h-[calc(100vh-8rem)] flex-col gap-5 lg:grid lg:grid-cols-3">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="absolute left-1/2 top-4 z-50 -translate-x-1/2 rounded-xl bg-green-500 px-6 py-3 font-medium text-white shadow-lg">
+        <div className="absolute left-1/2 top-4 z-50 -translate-x-1/2 rounded-xl bg-emerald-500 px-6 py-3 text-sm font-bold tracking-wide text-white shadow-lg shadow-emerald-500/20 border border-emerald-400">
           {toastMessage}
         </div>
       )}

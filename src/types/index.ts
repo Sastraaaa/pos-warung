@@ -8,6 +8,10 @@ export interface Product {
   low_stock_flag: boolean;
   updated_at: string;
   checkout_count?: number; // for sorting by frequency
+  barcode?: string;
+  sku?: string;
+  supplier?: string;
+  catatan?: string;
 }
 
 export interface Customer {

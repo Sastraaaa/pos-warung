@@ -127,14 +127,14 @@ export function KasbonPage() {
           </button>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+        <div className="bg-[var(--color-surface-panel)] border border-[var(--color-surface-border)] rounded-2xl p-6 shadow-xl">
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
             <div>
               <h1 className="text-3xl font-bold text-white tracking-tight">
                 {selectedCustomer.name}
               </h1>
               <p className="text-slate-400 mt-1">
-                {selectedCustomer.phone || "No WA belum ada"}
+                {selectedCustomer.phone || "No. WA belum tersedia"}
               </p>
             </div>
             <div className="flex gap-3">
@@ -144,15 +144,15 @@ export function KasbonPage() {
                   /* optional edit handler */
                 }}
               >
-                Edit
+                Edit Profil
               </button>
               {selectedCustomer.phone && (
                 <button
                   onClick={() => {
-                    const msg = `Halo ${selectedCustomer.name}, ini tagihan dari POS Warung.\nTotal hutang: ${formatRupiah(selectedCustomer.total_outstanding_debt)}\nMohon segera dilunasi. Terima kasih.`;
+                    const msg = `Halo ${selectedCustomer.name}, ini tagihan dari POS Warung.\nTotal kasbon Anda sebesar: ${formatRupiah(selectedCustomer.total_outstanding_debt)}.\nMohon segera dilunasi. Terima kasih.`;
                     handleTagihWA(selectedCustomer.phone!, msg);
                   }}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-medium transition-colors"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-medium transition-colors shadow-lg shadow-emerald-900/20"
                 >
                   Tagih via WA
                 </button>
@@ -160,25 +160,25 @@ export function KasbonPage() {
             </div>
           </div>
 
-          <div className="mt-8 pt-8 border-t border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="mt-8 pt-8 border-t border-slate-700/50 flex flex-col md:flex-row items-center justify-between gap-4">
             <div>
-              <p className="text-sm text-slate-400 font-medium">Sisa Hutang</p>
-              <p className="text-4xl font-bold text-red-400 tracking-tight mt-1">
+              <p className="text-sm font-bold uppercase tracking-wider text-slate-400">Sisa Kasbon</p>
+              <p className="text-4xl font-black text-red-400 tracking-tight mt-1">
                 {formatRupiah(selectedCustomer.total_outstanding_debt)}
               </p>
             </div>
             <button
               onClick={() => setShowCicilanModal(true)}
               disabled={selectedCustomer.total_outstanding_debt <= 0}
-              className="w-full md:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl font-medium transition-colors shadow-lg shadow-blue-900/20"
+              className="w-full md:w-auto px-6 py-3.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl font-bold tracking-wide transition-colors shadow-lg shadow-blue-900/30"
             >
-              Bayar Cicilan
+              Bayar Cicilan / Lunas
             </button>
           </div>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-          <h2 className="text-xl font-bold text-white mb-6">Histori Kasbon</h2>
+        <div className="bg-[var(--color-surface-panel)] border border-[var(--color-surface-border)] rounded-2xl p-6 shadow-xl">
+          <h2 className="text-xl font-bold text-white mb-6">Riwayat Transaksi Kasbon</h2>
           <DebtHistoryTimeline
             transactions={transactions}
             customerName={selectedCustomer.name}
@@ -210,40 +210,45 @@ export function KasbonPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col justify-center">
-          <p className="text-slate-400 font-medium text-sm uppercase tracking-wider">
-            Total Kasbon Aktif
+        <div className="bg-[var(--color-surface-panel)] border border-[var(--color-surface-border)] rounded-2xl p-6 flex flex-col justify-center shadow-sm">
+          <p className="text-slate-400 font-bold text-xs uppercase tracking-wider">
+            Total Piutang Aktif
           </p>
-          <p className="text-3xl font-bold text-red-400 mt-2">
+          <p className="text-3xl font-black text-red-400 mt-2 tracking-tight">
             {formatRupiah(totalDebt)}
           </p>
         </div>
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col justify-center">
-          <p className="text-slate-400 font-medium text-sm uppercase tracking-wider">
-            Pelanggan Berhutang
+        <div className="bg-[var(--color-surface-panel)] border border-[var(--color-surface-border)] rounded-2xl p-6 flex flex-col justify-center shadow-sm">
+          <p className="text-slate-400 font-bold text-xs uppercase tracking-wider">
+            Pelanggan Berkasbon
           </p>
-          <p className="text-3xl font-bold text-white mt-2">
-            {customers.length} Orang
+          <p className="text-3xl font-black text-white mt-2 tracking-tight">
+            {customers.length} <span className="text-xl font-medium text-slate-400">Orang</span>
           </p>
         </div>
       </div>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+      <div className="bg-[var(--color-surface-panel)] border border-[var(--color-surface-border)] rounded-2xl p-6 shadow-sm">
         <div className="mb-6 relative">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+            <svg className="h-5 w-5 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+            </svg>
+          </div>
           <input
             type="text"
             placeholder="Cari nama pelanggan..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+            className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl py-3 pl-11 pr-4 text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
           />
         </div>
 
         <div className="space-y-3">
           {filteredCustomers.length === 0 ? (
-            <div className="text-center py-10 text-slate-500 border border-dashed border-slate-800 rounded-xl">
+            <div className="text-center py-10 text-slate-400 font-medium border border-dashed border-slate-700/50 bg-slate-900/20 rounded-xl">
               {searchQuery
-                ? "Tidak ada pelanggan yang cocok"
+                ? "Tidak ada pelanggan yang cocok dengan pencarian"
                 : "Belum ada data kasbon aktif"}
             </div>
           ) : (
