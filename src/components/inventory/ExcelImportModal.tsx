@@ -4,28 +4,93 @@ import {
   parseExcelFile,
   mapExcelColumns,
   downloadTemplate,
+  validateMappedProductRow,
   type MappedProduct,
 } from "../../lib/excel";
 
 interface ExcelImportModalProps {
+  existingProducts: Product[];
   onImport: (
-    products: Omit<
-      Product,
-      "id" | "updated_at" | "low_stock_flag" | "checkout_count"
-    >[],
+    result: {
+      validRows: Omit<
+        Product,
+        "id" | "updated_at" | "low_stock_flag" | "checkout_count"
+      >[];
+      summary: { valid: number; duplicate: number; invalid: number };
+    }
   ) => void;
   onClose: () => void;
 }
 
+type RowStatus = "valid" | "duplicate" | "invalid";
+
+interface PreviewRow extends MappedProduct {
+  _status: RowStatus;
+  _errors: string[];
+}
+
 export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
+  existingProducts,
   onImport,
   onClose,
 }) => {
   const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<MappedProduct[]>([]);
+  const [preview, setPreview] = useState<PreviewRow[]>([]);
+  const [summary, setSummary] = useState({ valid: 0, duplicate: 0, invalid: 0 });
   const [error, setError] = useState<string>("");
   const [isImporting, setIsImporting] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+
+  const checkDuplicate = (row: MappedProduct) => {
+    return existingProducts.some((p) => {
+      if (row.barcode && p.barcode && row.barcode === p.barcode) return true;
+      if (row.sku && p.sku && row.sku === p.sku) return true;
+      if (
+        row.name &&
+        p.name &&
+        row.name.trim().toLowerCase() === p.name.trim().toLowerCase()
+      )
+        return true;
+      return false;
+    });
+  };
+
+  const processFile = async (selectedFile: File) => {
+    try {
+      const data = await parseExcelFile(selectedFile);
+      const mapped = mapExcelColumns(data);
+      
+      let valid = 0;
+      let duplicate = 0;
+      let invalid = 0;
+
+      const processedRows: PreviewRow[] = mapped.map((row) => {
+        const validation = validateMappedProductRow(row);
+        const isDuplicate = checkDuplicate(row);
+        
+        let status: RowStatus = "valid";
+        const errors = validation.errors.map((e) => e.message);
+
+        if (!validation.isValid) {
+          status = "invalid";
+          invalid++;
+        } else if (isDuplicate) {
+          status = "duplicate";
+          duplicate++;
+          errors.push("Produk sudah ada di database");
+        } else {
+          valid++;
+        }
+
+        return { ...row, _status: status, _errors: errors };
+      });
+
+      setPreview(processedRows);
+      setSummary({ valid, duplicate, invalid });
+    } catch (err) {
+      setError("Gagal membaca file excel.");
+    }
+  };
 
   const handleFile = async (selectedFile: File) => {
     if (
@@ -38,13 +103,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
     }
     setFile(selectedFile);
     setError("");
-    try {
-      const data = await parseExcelFile(selectedFile);
-      const mapped = mapExcelColumns(data);
-      setPreview(mapped.slice(0, 5));
-    } catch (err) {
-      setError("Gagal membaca file excel.");
-    }
+    await processFile(selectedFile);
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -61,17 +120,15 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
     }
   };
 
-  const handleImport = async () => {
+  const handleImport = () => {
     if (!file) return;
     setIsImporting(true);
-    try {
-      const data = await parseExcelFile(file);
-      const mapped = mapExcelColumns(data);
-      onImport(mapped);
-    } catch (err) {
-      setError("Gagal mengimpor data.");
-      setIsImporting(false);
-    }
+    
+    const validRows = preview
+      .filter((r) => r._status === "valid")
+      .map(({ _status, _errors, ...product }) => product);
+
+    onImport({ validRows, summary });
   };
 
   return (
@@ -131,29 +188,60 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
 
         {preview.length > 0 && (
-          <div className="mb-6">
-            <h3 className="mb-2 text-sm font-medium text-white">
-              Preview Mapping (5 baris pertama)
-            </h3>
-            <div className="overflow-x-auto rounded-lg border border-slate-700 bg-slate-800">
-              <table className="w-full text-left text-sm text-slate-300">
-                <thead className="bg-slate-700/50 text-xs uppercase text-slate-400">
+          <div className="mb-6 flex flex-col gap-3">
+            <div className="flex items-center gap-4 text-sm">
+              <span className="flex items-center gap-1.5 text-green-400">
+                <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                Valid: {summary.valid}
+              </span>
+              <span className="flex items-center gap-1.5 text-yellow-400">
+                <div className="h-2 w-2 rounded-full bg-yellow-500"></div>
+                Duplikat: {summary.duplicate}
+              </span>
+              <span className="flex items-center gap-1.5 text-red-400">
+                <div className="h-2 w-2 rounded-full bg-red-500"></div>
+                Tidak Valid: {summary.invalid}
+              </span>
+            </div>
+
+            <div className="max-h-64 overflow-y-auto overflow-x-auto rounded-lg border border-slate-700 bg-slate-800">
+              <table className="w-full text-left text-sm text-slate-300 relative">
+                <thead className="sticky top-0 bg-slate-700/90 backdrop-blur-sm text-xs uppercase text-slate-400 z-10 shadow-sm">
                   <tr>
+                    <th className="px-4 py-2">Status</th>
                     <th className="px-4 py-2">Nama</th>
                     <th className="px-4 py-2">Kategori</th>
                     <th className="px-4 py-2">Modal</th>
                     <th className="px-4 py-2">Jual</th>
                     <th className="px-4 py-2">Stok</th>
+                    <th className="px-4 py-2">Barcode</th>
+                    <th className="px-4 py-2">SKU</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-700">
                   {preview.map((row, idx) => (
-                    <tr key={idx}>
+                    <tr key={idx} className={row._status === "invalid" ? "bg-red-500/5" : row._status === "duplicate" ? "bg-yellow-500/5" : ""}>
+                      <td className="px-4 py-2">
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                            row._status === "valid"
+                              ? "bg-green-500/10 text-green-400"
+                              : row._status === "duplicate"
+                              ? "bg-yellow-500/10 text-yellow-400"
+                              : "bg-red-500/10 text-red-400"
+                          }`}
+                          title={row._errors.join(", ")}
+                        >
+                          {row._status === "valid" ? "Valid" : row._status === "duplicate" ? "Duplikat" : "Error"}
+                        </span>
+                      </td>
                       <td className="px-4 py-2">{row.name}</td>
                       <td className="px-4 py-2">{row.category}</td>
                       <td className="px-4 py-2">{row.capital_price}</td>
                       <td className="px-4 py-2">{row.selling_price}</td>
                       <td className="px-4 py-2">{row.current_stock}</td>
+                      <td className="px-4 py-2">{row.barcode || "-"}</td>
+                      <td className="px-4 py-2">{row.sku || "-"}</td>
                     </tr>
                   ))}
                 </tbody>
