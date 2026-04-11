@@ -5,6 +5,17 @@ import { db } from "../db/database";
 import { ExcelImportModal } from "../components/inventory/ExcelImportModal";
 import { ProductFormModal, type ProductFormData } from "../components/inventory/ProductFormModal";
 import { downloadExport } from "../lib/excel";
+import { emitProductsUpdated } from "../lib/appEvents";
+
+const INVENTORY_CATEGORIES = [
+  "Makanan",
+  "Minuman",
+  "Sembako",
+  "Snack",
+  "Kebersihan",
+  "Perawatan",
+  "Lainnya",
+] as const;
 
 const EditableCell = ({
   value,
@@ -30,8 +41,13 @@ const EditableCell = ({
 
   const handleBlur = () => {
     setIsEditing(false);
-    if (editValue !== value) {
-      onSave(editValue);
+    const normalizedValue =
+      type === "number"
+        ? (editValue === "" ? 0 : Number(editValue))
+        : editValue;
+
+    if (normalizedValue !== value) {
+      onSave(normalizedValue);
     }
   };
 
@@ -47,14 +63,26 @@ const EditableCell = ({
   if (isEditing) {
     return (
       <input
-        type={type}
+        type={type === "number" ? "text" : type}
+        inputMode={type === "number" ? "numeric" : undefined}
         autoFocus
         value={editValue}
-        onChange={(e) =>
-          setEditValue(
-            type === "number" ? Number(e.target.value) : e.target.value,
-          )
-        }
+        onChange={(e) => {
+          const nextValue = e.target.value;
+          if (type === "number") {
+            if (nextValue === "") {
+              setEditValue("");
+              return;
+            }
+
+            if (/^\d+$/.test(nextValue)) {
+              setEditValue(nextValue);
+            }
+            return;
+          }
+
+          setEditValue(nextValue);
+        }}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
         className="w-full bg-slate-700 px-2 py-1 outline-none rounded"
@@ -73,6 +101,56 @@ const EditableCell = ({
       className="w-full cursor-pointer px-2 py-1 border border-transparent hover:border-slate-600 rounded transition-colors"
     >
       {displayValue}
+    </div>
+  );
+};
+
+const EditableCategoryCell = ({
+  value,
+  options,
+  onSave,
+}: {
+  value: string;
+  options: string[];
+  onSave: (value: string) => void;
+}) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(value);
+
+  const handleBlur = () => {
+    setIsEditing(false);
+    if (editValue !== value) {
+      onSave(editValue);
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <select
+        autoFocus
+        value={editValue}
+        onChange={(e) => setEditValue(e.target.value)}
+        onBlur={handleBlur}
+        className="w-full bg-slate-700 px-2 py-1 outline-none rounded text-white"
+      >
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  return (
+    <div
+      onClick={() => {
+        setEditValue(value);
+        setIsEditing(true);
+      }}
+      className="w-full cursor-pointer px-2 py-1 border border-transparent hover:border-slate-600 rounded transition-colors"
+    >
+      {value}
     </div>
   );
 };
@@ -97,10 +175,12 @@ export default function InventoryPage() {
     try {
       await db.products.put(newProduct);
       loadProducts();
+      emitProductsUpdated();
     } catch (error) {
       console.error("Failed to add product", error);
       // Fallback for visual testing
       setProducts([newProduct, ...products]);
+      emitProductsUpdated();
     }
   };
 
@@ -178,11 +258,13 @@ export default function InventoryPage() {
       );
       setShowImportModal(false);
       loadProducts();
+      emitProductsUpdated();
       setTimeout(() => setImportMessage(""), 5000);
     } catch (error) {
       console.error("Error importing products", error);
       // Fallback for visual testing
       setProducts([...productsToInsert, ...products]);
+      emitProductsUpdated();
       setImportMessage(
         `Berhasil mengimpor ${summary.valid} produk (Offline mode). Duplikat: ${summary.duplicate}, Tidak Valid: ${summary.invalid}`,
       );
@@ -203,7 +285,7 @@ export default function InventoryPage() {
     const product = products.find((p) => p.id === id);
     if (!product) return;
 
-    let updatedValue: any = value;
+    let updatedValue: string | number = value;
     if (
       field === "capital_price" ||
       field === "selling_price" ||
@@ -219,16 +301,19 @@ export default function InventoryPage() {
     };
 
     if (field === "current_stock") {
-      updatedProduct.low_stock_flag = updatedValue <= 5;
+      const stockValue = Number(updatedValue);
+      updatedProduct.low_stock_flag = stockValue <= 5;
     }
 
     try {
       await db.products.put(updatedProduct);
       setProducts(products.map((p) => (p.id === id ? updatedProduct : p)));
+      emitProductsUpdated();
     } catch (error) {
       console.error("Failed to update product", error);
       // Fallback for testing
       setProducts(products.map((p) => (p.id === id ? updatedProduct : p)));
+      emitProductsUpdated();
     }
   };
 
@@ -237,15 +322,17 @@ export default function InventoryPage() {
     try {
       await db.products.delete(id);
       setProducts(products.filter((p) => p.id !== id));
+      emitProductsUpdated();
     } catch (error) {
       console.error("Failed to delete product", error);
       // Fallback for testing
       setProducts(products.filter((p) => p.id !== id));
+      emitProductsUpdated();
     }
   };
 
   const categories = Array.from(
-    new Set(products.map((p) => p.category)),
+    new Set([...INVENTORY_CATEGORIES, ...products.map((p) => p.category)]),
   ).filter(Boolean);
 
   const filteredProducts = products.filter((p) => {
@@ -346,8 +433,9 @@ export default function InventoryPage() {
                   />
                 </td>
                 <td className="px-4 py-2">
-                  <EditableCell
+                  <EditableCategoryCell
                     value={product.category}
+                    options={categories}
                     onSave={(val) =>
                       handleCellEdit(product.id, "category", val)
                     }
@@ -436,6 +524,7 @@ export default function InventoryPage() {
         <ProductFormModal
           onClose={() => setShowProductModal(false)}
           onSave={handleAddProduct}
+          categories={categories}
         />
       )}
     </div>

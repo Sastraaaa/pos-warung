@@ -3,6 +3,8 @@ import { useCart } from "../hooks/useCart";
 import { ProductCatalog } from "../components/pos/ProductCatalog";
 import { CartPanel } from "../components/pos/CartPanel";
 import { db } from "../db/database";
+import { syncManager } from "../db/sync";
+import { emitProductsUpdated } from "../lib/appEvents";
 import type { Transaction } from "../types";
 
 export function PosPage() {
@@ -21,6 +23,15 @@ export function PosPage() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  const triggerPostTransactionUpdates = () => {
+    emitProductsUpdated();
+    if (typeof navigator !== "undefined" && navigator.onLine) {
+      void syncManager
+        .sync()
+        .catch((error) => console.error("Gagal sinkronisasi otomatis", error));
+    }
+  };
+
   const handleLunas = async () => {
     try {
       const transaction: Transaction = {
@@ -34,10 +45,10 @@ export function PosPage() {
         is_synced: false,
       };
 
-      // @ts-ignore
       await db.addTransaction(transaction, cart);
 
       clearCart();
+      triggerPostTransactionUpdates();
       showToast("Transaksi LUNAS berhasil disimpan!");
     } catch (error) {
       console.error("Lunas transaction failed", error);
@@ -58,10 +69,10 @@ export function PosPage() {
         is_synced: false,
       };
 
-      // @ts-ignore
       await db.addTransaction(transaction, cart);
 
       clearCart();
+      triggerPostTransactionUpdates();
       showToast("Transaksi KASBON berhasil dicatat!");
     } catch (error) {
       console.error("Kasbon transaction failed", error);
@@ -83,10 +94,10 @@ export function PosPage() {
         is_synced: false,
       };
 
-      // @ts-ignore
       await db.addTransaction(transaction, cart);
 
       clearCart();
+      triggerPostTransactionUpdates();
       showToast("Transaksi BAYAR SEBAGIAN berhasil disimpan!");
     } catch (error) {
       console.error("Cicilan transaction failed", error);
