@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import type { Product } from "../../types";
 import { db } from "../../db/database";
+import { PRODUCTS_UPDATED_EVENT } from "../../lib/appEvents";
 
 interface Props {
   onAddToCart: (product: Product) => void;
@@ -16,13 +17,21 @@ export function ProductCatalog({ onAddToCart }: Props) {
     loadProducts();
   }, []);
 
+  useEffect(() => {
+    const handleProductsUpdated = () => {
+      void loadProducts();
+    };
+
+    window.addEventListener(PRODUCTS_UPDATED_EVENT, handleProductsUpdated);
+    return () => {
+      window.removeEventListener(PRODUCTS_UPDATED_EVENT, handleProductsUpdated);
+    };
+  }, []);
+
   const loadProducts = async () => {
     try {
       setIsLoading(true);
-      // @ts-ignore
-      const data = await (db.getAllProducts
-        ? db.getAllProducts()
-        : db.products.toArray());
+      const data = await db.getAllProducts();
       setProducts(data);
     } catch (err) {
       console.error("Failed to load products", err);
@@ -48,7 +57,7 @@ export function ProductCatalog({ onAddToCart }: Props) {
       result = result.filter((p) => p.name.toLowerCase().includes(lowerQuery));
     }
 
-    return result.sort(
+    return [...result].sort(
       (a, b) => (b.checkout_count || 0) - (a.checkout_count || 0),
     );
   }, [products, searchQuery, selectedCategory]);

@@ -15,15 +15,32 @@ export interface ProductFormData {
 interface ProductFormModalProps {
   onClose: () => void;
   onSave: (data: ProductFormData) => Promise<void>;
+  categories: string[];
 }
 
-export function ProductFormModal({ onClose, onSave }: ProductFormModalProps) {
-  const [formData, setFormData] = useState<ProductFormData>({
+interface ProductFormState {
+  name: string;
+  category: string;
+  capital_price: string;
+  selling_price: string;
+  current_stock: string;
+  barcode: string;
+  sku: string;
+  supplier: string;
+  catatan: string;
+}
+
+export function ProductFormModal({
+  onClose,
+  onSave,
+  categories,
+}: ProductFormModalProps) {
+  const [formData, setFormData] = useState<ProductFormState>({
     name: "",
     category: "",
-    capital_price: 0,
-    selling_price: 0,
-    current_stock: 0,
+    capital_price: "0",
+    selling_price: "0",
+    current_stock: "0",
     barcode: "",
     sku: "",
     supplier: "",
@@ -32,22 +49,59 @@ export function ProductFormModal({ onClose, onSave }: ProductFormModalProps) {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const parseNumber = (value: string) => {
+    const sanitized = value.replace(/[^0-9]/g, "");
+    if (sanitized === "") return null;
+    return Number(sanitized);
+  };
+
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
-    const { name, value, type } = e.target;
+    const { name, value } = e.target;
+
+    if (name === "capital_price" || name === "selling_price" || name === "current_stock") {
+      const sanitized = value.replace(/[^0-9]/g, "");
+      setFormData((prev) => ({
+        ...prev,
+        [name]: sanitized,
+      }));
+      return;
+    }
+
     setFormData((prev) => ({
       ...prev,
-      [name]: type === "number" ? Number(value) : value,
+      [name]: value,
     }));
   };
+
+  const handleNumericFocus = (field: "capital_price" | "selling_price" | "current_stock") => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: prev[field] === "0" ? "" : prev[field],
+    }));
+  };
+
+  const handleNumericBlur = (field: "capital_price" | "selling_price" | "current_stock") => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: prev[field] === "" ? "0" : prev[field],
+    }));
+  };
+
+  const capitalPrice = parseNumber(formData.capital_price);
+  const sellingPrice = parseNumber(formData.selling_price);
+  const currentStock = parseNumber(formData.current_stock);
 
   const isValid =
     formData.name.trim() !== "" &&
     formData.category.trim() !== "" &&
-    formData.capital_price >= 0 &&
-    formData.selling_price >= 0 &&
-    formData.current_stock >= 0;
+    capitalPrice !== null &&
+    sellingPrice !== null &&
+    currentStock !== null &&
+    capitalPrice >= 0 &&
+    sellingPrice >= 0 &&
+    currentStock >= 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +109,17 @@ export function ProductFormModal({ onClose, onSave }: ProductFormModalProps) {
 
     try {
       setIsSubmitting(true);
-      await onSave(formData);
+      await onSave({
+        name: formData.name.trim(),
+        category: formData.category,
+        capital_price: capitalPrice ?? 0,
+        selling_price: sellingPrice ?? 0,
+        current_stock: currentStock ?? 0,
+        barcode: formData.barcode.trim() || undefined,
+        sku: formData.sku.trim() || undefined,
+        supplier: formData.supplier.trim() || undefined,
+        catatan: formData.catatan.trim() || undefined,
+      });
       onClose();
     } catch (error) {
       console.error("Failed to save product", error);
@@ -103,15 +167,20 @@ export function ProductFormModal({ onClose, onSave }: ProductFormModalProps) {
                 <label className="mb-1 block text-sm font-medium text-slate-400">
                   Kategori <span className="text-red-400">*</span>
                 </label>
-                <input
-                  type="text"
+                <select
                   name="category"
                   value={formData.category}
                   onChange={handleChange}
                   required
                   className="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
-                  placeholder="Contoh: Makanan"
-                />
+                >
+                  <option value="">Pilih kategori...</option>
+                  {categories.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -119,13 +188,16 @@ export function ProductFormModal({ onClose, onSave }: ProductFormModalProps) {
                   Harga Modal <span className="text-red-400">*</span>
                 </label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   name="capital_price"
                   value={formData.capital_price}
                   onChange={handleChange}
-                  min="0"
+                  onFocus={() => handleNumericFocus("capital_price")}
+                  onBlur={() => handleNumericBlur("capital_price")}
                   required
                   className="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+                  placeholder="0"
                 />
               </div>
 
@@ -134,13 +206,16 @@ export function ProductFormModal({ onClose, onSave }: ProductFormModalProps) {
                   Harga Jual <span className="text-red-400">*</span>
                 </label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   name="selling_price"
                   value={formData.selling_price}
                   onChange={handleChange}
-                  min="0"
+                  onFocus={() => handleNumericFocus("selling_price")}
+                  onBlur={() => handleNumericBlur("selling_price")}
                   required
                   className="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+                  placeholder="0"
                 />
               </div>
 
@@ -149,13 +224,16 @@ export function ProductFormModal({ onClose, onSave }: ProductFormModalProps) {
                   Stok Awal <span className="text-red-400">*</span>
                 </label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   name="current_stock"
                   value={formData.current_stock}
                   onChange={handleChange}
-                  min="0"
+                  onFocus={() => handleNumericFocus("current_stock")}
+                  onBlur={() => handleNumericBlur("current_stock")}
                   required
                   className="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+                  placeholder="0"
                 />
               </div>
             </div>
