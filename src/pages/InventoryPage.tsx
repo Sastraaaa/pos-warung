@@ -6,6 +6,7 @@ import { ExcelImportModal } from "../components/inventory/ExcelImportModal";
 import { ProductFormModal, type ProductFormData } from "../components/inventory/ProductFormModal";
 import { downloadExport } from "../lib/excel";
 import { emitProductsUpdated } from "../lib/appEvents";
+import { syncManager } from "../db/sync";
 
 const INVENTORY_CATEGORIES = [
   "Makanan",
@@ -163,6 +164,14 @@ export default function InventoryPage() {
   const [showProductModal, setShowProductModal] = useState(false);
   const [importMessage, setImportMessage] = useState("");
 
+  const triggerProductSync = () => {
+    if (typeof navigator !== "undefined" && navigator.onLine) {
+      void syncManager
+        .sync()
+        .catch((error) => console.error("Gagal sinkronisasi produk", error));
+    }
+  };
+
   const handleAddProduct = async (data: ProductFormData) => {
     const newProduct: ProductRecord = {
       ...data,
@@ -176,6 +185,7 @@ export default function InventoryPage() {
       await db.products.put(newProduct);
       loadProducts();
       emitProductsUpdated();
+      triggerProductSync();
     } catch (error) {
       console.error("Failed to add product", error);
       // Fallback for visual testing
@@ -259,6 +269,7 @@ export default function InventoryPage() {
       setShowImportModal(false);
       loadProducts();
       emitProductsUpdated();
+      triggerProductSync();
       setTimeout(() => setImportMessage(""), 5000);
     } catch (error) {
       console.error("Error importing products", error);
@@ -309,6 +320,7 @@ export default function InventoryPage() {
       await db.products.put(updatedProduct);
       setProducts(products.map((p) => (p.id === id ? updatedProduct : p)));
       emitProductsUpdated();
+      triggerProductSync();
     } catch (error) {
       console.error("Failed to update product", error);
       // Fallback for testing
@@ -323,6 +335,7 @@ export default function InventoryPage() {
       await db.products.delete(id);
       setProducts(products.filter((p) => p.id !== id));
       emitProductsUpdated();
+      triggerProductSync();
     } catch (error) {
       console.error("Failed to delete product", error);
       // Fallback for testing

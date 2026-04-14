@@ -3,14 +3,6 @@ import { supabase } from '../lib/supabase'
 
 type SyncSummary = { synced: number; failed: number }
 
-function groupQuantities(items: LocalTransactionItemRecord[]) {
-  const map = new Map<string, number>()
-  for (const item of items) {
-    map.set(item.product_id, (map.get(item.product_id) ?? 0) + item.quantity)
-  }
-  return map
-}
-
 export class SyncManager {
   private intervalId: number | null = null
   private onlineHandler: (() => void) | null = null
@@ -39,9 +31,66 @@ export class SyncManager {
         }
       }
 
+      try {
+        await this.syncProductsSnapshot()
+      } catch (e) {
+        console.error('[sync] Failed to sync products snapshot', e)
+      }
+
       return { synced, failed }
     } finally {
       this.isSyncing = false
+    }
+  }
+
+  private async syncProductsSnapshot() {
+    const products = await db.getAllProducts()
+    if (products.length === 0) return
+
+    const payload = products.map((product) => ({
+      id: product.id,
+      name: product.name,
+      category: product.category,
+      capital_price: product.capital_price,
+      selling_price: product.selling_price,
+      current_stock: product.current_stock,
+      low_stock_flag: product.low_stock_flag,
+      checkout_count: product.checkout_count,
+      updated_at: product.updated_at,
+    }))
+
+    const { error } = await supabase
+      .from('products')
+      .upsert(payload, { onConflict: 'id' })
+
+    if (error) {
+      throw error
+    }
+  }
+
+  private async ensureProductsForItems(items: LocalTransactionItemRecord[]) {
+    const productIds = Array.from(new Set(items.map((item) => item.product_id)))
+
+    for (const productId of productIds) {
+      const product = await db.products.get(productId)
+      if (!product) {
+        throw new Error(`Missing local product for transaction item: ${productId}`)
+      }
+
+      const { error } = await supabase.from('products').upsert(
+        {
+          id: product.id,
+          name: product.name,
+          category: product.category,
+          capital_price: product.capital_price,
+          selling_price: product.selling_price,
+          low_stock_flag: product.low_stock_flag,
+          updated_at: product.updated_at,
+        },
+        { onConflict: 'id' },
+      )
+
+      if (error) throw error
     }
   }
 
@@ -92,6 +141,8 @@ export class SyncManager {
     const items = await db.getTransactionItems(localId)
     const remoteTxId = tx.remote_id || crypto.randomUUID()
 
+    await this.ensureProductsForItems(items)
+
     // If remote_id was missing, persist it so retries are idempotent.
     if (!tx.remote_id) {
       await db.transactions.update(localId, { remote_id: remoteTxId })
@@ -131,31 +182,7 @@ export class SyncManager {
         if (itemsErr) throw itemsErr
       }
 
-      // 3) Update product stock
-      // checkout_count is incremented by DB trigger on transaction_items insert.
-      const qtyByProduct = groupQuantities(items)
-      for (const [productId, qty] of qtyByProduct.entries()) {
-        const { data: prod, error: prodSelErr } = await supabase
-          .from('products')
-          .select('current_stock')
-          .eq('id', productId)
-          .single()
-        if (prodSelErr) throw prodSelErr
-
-        const currentStock = Number(prod.current_stock ?? 0)
-        const newStock = Math.max(0, currentStock - qty)
-
-        const { error: prodUpErr } = await supabase
-          .from('products')
-          .update({
-            current_stock: newStock,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', productId)
-        if (prodUpErr) throw prodUpErr
-      }
-
-      // 4) Update customer debt
+      // 3) Update customer debt
       // - POS sales create debt via debt_created
       // - KasbonPage creates repayment entries with total_amount = 0 and paid_amount > 0
       if (tx.customer_id) {
@@ -185,7 +212,7 @@ export class SyncManager {
       await db.markTransactionSynced(localId)
     } catch (e) {
       if (insertedTransaction) {
-        // Roll back remote rows best-effort to avoid duplicates on retry.
+      // Roll back remote rows best-effort to avoid duplicates on retry.
         try {
           await supabase.from('transaction_items').delete().eq('transaction_id', remoteTxId)
         } catch {
